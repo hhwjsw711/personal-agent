@@ -11,7 +11,7 @@ It's a thin skeleton — one `PersonalAgent` class plus a small Worker entry in 
 - **Telegram chat** with persistent per-conversation memory (Durable Object SQLite).
 - **Web search** via Tavily — `web_search`.
 - **Web browsing** via Chrome DevTools / Browser Run — `browser_search`, `browser_execute`.
-- **Images & screenshots** — send an image URL or a live page screenshot to the chat (`send_image`).
+- **Send files** — send any file from the workspace, a public URL, or a live page screenshot to the chat (`send_file`).
 - **Smart home** — control Home Assistant devices over MCP.
 - **Workspace tools** — files + sandboxed bash, built into Think.
 

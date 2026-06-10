@@ -104,42 +104,66 @@ export class PersonalAgent extends Think<Env> {
 				},
 			}),
 
-			send_image: tool({
+			send_file: tool({
 				description:
-					"Send an image to the current Telegram chat. Pass a direct image URL as `url`. To send a screenshot of a web page instead, pass the page URL as `url` and set `screenshot: true`.",
+					"Send a file to the current Telegram chat. Set `source`: 'workspace' to send a file from your filesystem (give `path`), 'url' to send a file straight from a public URL (give `url`), or 'screenshot' to render a web page and send a PNG of it (give the page `url`). Images and screenshots are shown inline; other types are sent as documents. Set `asDocument: true` to send an image uncompressed.",
 				inputSchema: z.object({
+					source: z.enum(["workspace", "url", "screenshot"]),
+					path: z
+						.string()
+						.optional()
+						.describe("Workspace file path, when source is 'workspace'"),
 					url: z
 						.string()
 						.url()
-						.describe("Image URL, or a web page URL when screenshot is true"),
-					screenshot: z
-						.boolean()
 						.optional()
-						.describe("Render the page at `url` and send a screenshot of it"),
+						.describe(
+							"File URL when source is 'url', or page URL when 'screenshot'",
+						),
 					caption: z.string().optional().describe("Optional caption text"),
 					fullPage: z
 						.boolean()
 						.optional()
 						.describe("With screenshot, capture the full scrollable page"),
+					asDocument: z
+						.boolean()
+						.optional()
+						.describe("Send an image as an uncompressed document"),
 				}),
-				execute: async ({ url, screenshot, caption, fullPage }) => {
+				execute: async ({ source, path, url, caption, fullPage, asDocument }) => {
 					const chatId = this.telegramChatId();
-					if (!chatId) return "No active Telegram chat to send a photo to.";
+					if (!chatId) return "No active Telegram chat to send a file to.";
+
+					let bytes: Uint8Array | undefined;
+					let filename = "file";
+					if (source === "screenshot") {
+						if (!url) return "Provide the page url to screenshot.";
+						bytes = await this.captureScreenshot(url, fullPage ?? false);
+						filename = "screenshot.png";
+					} else if (source === "workspace") {
+						if (!path) return "Provide the workspace path of the file to send.";
+						const data = await this.workspace.readFileBytes(path);
+						if (!data) return `No file found at ${path}.`;
+						bytes = data;
+						filename = path.split("/").pop() || "file";
+					} else {
+						if (!url) return "Provide the file url to send.";
+						filename = new URL(url).pathname.split("/").pop() || "file";
+					}
+
+					const asPhoto =
+						!asDocument &&
+						(source === "screenshot" || /\.(png|jpe?g|gif|webp)$/i.test(filename));
+					const field = asPhoto ? "photo" : "document";
 
 					const form = new FormData();
 					form.set("chat_id", chatId);
 					if (caption) form.set("caption", caption);
-					if (screenshot) {
-						const png = await this.captureScreenshot(url, fullPage ?? false);
-						form.set(
-							"photo",
-							new Blob([png], { type: "image/png" }),
-							"screenshot.png",
-						);
-					} else {
-						form.set("photo", url);
-					}
-					return this.sendTelegramPhoto(form);
+					// With bytes we upload the file; otherwise Telegram fetches the URL.
+					if (bytes) form.set(field, new Blob([bytes]), filename);
+					else form.set(field, url!);
+
+					return this.sendTelegramFile(asPhoto ? "sendPhoto" : "sendDocument", form);
 				},
 			}),
 		};
@@ -157,11 +181,15 @@ export class PersonalAgent extends Think<Env> {
 		});
 	}
 
-	// Wipe the conversation AND the Chat SDK state sub-agents (each has its own
-	// isolated SQLite, so clearing this agent alone wouldn't reach them).
+	// Wipe everything: the conversation, the workspace files, and the Chat SDK
+	// state sub-agents (each has its own isolated SQLite, so clearing this agent
+	// alone wouldn't reach them).
 	async resetEverything(): Promise<void> {
 		for (const sub of this.listSubAgents(ThinkMessengerStateAgent)) {
 			await this.deleteSubAgent(ThinkMessengerStateAgent, sub.name);
+		}
+		for (const entry of await this.workspace.readDir("/")) {
+			await this.workspace.rm(entry.path, { recursive: true, force: true });
 		}
 		await this.clearMessages();
 	}
@@ -191,14 +219,17 @@ export class PersonalAgent extends Think<Env> {
 		}
 	}
 
-	private async sendTelegramPhoto(form: FormData): Promise<string> {
+	private async sendTelegramFile(
+		method: "sendPhoto" | "sendDocument",
+		form: FormData,
+	): Promise<string> {
 		const res = await fetch(
-			`https://api.telegram.org/bot${this.env.TELEGRAM_BOT_TOKEN}/sendPhoto`,
+			`https://api.telegram.org/bot${this.env.TELEGRAM_BOT_TOKEN}/${method}`,
 			{ method: "POST", body: form },
 		);
 		return res.ok
-			? "Photo sent to the chat."
-			: `Telegram rejected the photo: ${await res.text()}`;
+			? "File sent to the chat."
+			: `Telegram rejected the file: ${await res.text()}`;
 	}
 }
 
@@ -240,7 +271,7 @@ export default {
 			await agent.resetEverything();
 			return Response.json({
 				ok: true,
-				message: "Conversation and Chat SDK state cleared.",
+				message: "Conversation, workspace files, and Chat SDK state cleared.",
 			});
 		}
 
