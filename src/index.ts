@@ -1,6 +1,11 @@
 import { getAgentByName, routeAgentRequest } from "agents";
 import { createWorkersAI } from "workers-ai-provider";
-import { Think, type Session } from "@cloudflare/think";
+import {
+	Think,
+	type Session,
+	type TurnContext,
+	type ToolCallContext,
+} from "@cloudflare/think";
 import {
 	defineMessengers,
 	ThinkMessengerStateAgent,
@@ -21,6 +26,9 @@ const TELEGRAM_WEBHOOK_PATH = "/messengers/telegram/webhook";
 export class PersonalAgent extends Think<Env> {
 	// Connect Home Assistant's MCP tools before the first turn runs.
 	waitForMcpConnections = true;
+
+	// The live "progress" message for the current messenger turn.
+	private status?: { chatId: string; messageId: number; text: string };
 
 	override getModel() {
 		return createWorkersAI({ binding: this.env.AI })("@cf/moonshotai/kimi-k2.6");
@@ -174,6 +182,46 @@ export class PersonalAgent extends Think<Env> {
 		return skillSources;
 	}
 
+	// Show live progress while a turn runs: post a status message on the first
+	// tool call, edit it as each subsequent tool runs, then delete it once the
+	// final answer is delivered. Telegram can't render tool-call parts like a
+	// custom UI, so we translate each tool event into one line.
+	override async beforeTurn(ctx: TurnContext) {
+		if (!ctx.continuation && this.telegramChatId()) this.status = undefined;
+	}
+
+	override async beforeToolCall(ctx: ToolCallContext) {
+		const chatId = this.telegramChatId();
+		if (!chatId) return;
+		const text = `⏳ Running ${ctx.toolName}…`;
+		if (this.status) {
+			if (this.status.text === text) return;
+			await this.callTelegram("editMessageText", {
+				chat_id: chatId,
+				message_id: this.status.messageId,
+				text,
+			});
+			this.status.text = text;
+		} else {
+			const res = await this.callTelegram("sendMessage", {
+				chat_id: chatId,
+				text,
+			});
+			const data = (await res.json()) as { result?: { message_id: number } };
+			if (data.result)
+				this.status = { chatId, messageId: data.result.message_id, text };
+		}
+	}
+
+	override async onChatResponse() {
+		if (!this.status) return;
+		await this.callTelegram("deleteMessage", {
+			chat_id: this.status.chatId,
+			message_id: this.status.messageId,
+		});
+		this.status = undefined;
+	}
+
 	override getMessengers(): ThinkMessengers {
 		return defineMessengers({
 			telegram: telegramMessenger({
@@ -235,6 +283,19 @@ export class PersonalAgent extends Think<Env> {
 		return res.ok
 			? "File sent to the chat."
 			: `Telegram rejected the file: ${await res.text()}`;
+	}
+
+	// JSON Bot API call for text-only methods (sendMessage/editMessageText/
+	// deleteMessage); file uploads use sendTelegramFile (multipart) instead.
+	private callTelegram(method: string, body: Record<string, unknown>) {
+		return fetch(
+			`https://api.telegram.org/bot${this.env.TELEGRAM_BOT_TOKEN}/${method}`,
+			{
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify(body),
+			},
+		);
 	}
 }
 
