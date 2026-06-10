@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.webp" alt="personal-agent logo" width="160" height="160" />
+  <img src="logo.webp" alt="personal-agent logo" width="300" height="300" />
 </p>
 
 # personal-agent
@@ -39,12 +39,14 @@ Needs a Cloudflare account and Node. Run `npm install`, then create a `.env` (gi
 3. Register the webhook by opening `https://<your-url>/setup` once (see **Run** / **Deploy**).
 
 The bot replies to direct messages and @mentions. Edit `getSystemPrompt()` to change its personality.
+
 </details>
 
 <details>
 <summary><b>Workers AI</b> — the model</summary>
 
 Already wired through the `AI` binding (`getModel()` → `@cf/moonshotai/kimi-k2.6`). No key, but run `npx wrangler login` — the binding runs against your account even in local dev. Swap the model string in `getModel()` to use a different one.
+
 </details>
 
 <details>
@@ -58,6 +60,7 @@ Already wired through the `AI` binding (`getModel()` → `@cf/moonshotai/kimi-k2
 <summary><b>Browser & screenshots</b> — Browser Run</summary>
 
 No keys. Uses the `BROWSER` and `LOADER` (Worker Loader) bindings already in `wrangler.jsonc`; `wrangler dev` provisions a browser automatically. Just needs Browser Run available on your account.
+
 </details>
 
 <details>
@@ -71,7 +74,7 @@ No keys. Uses the `BROWSER` and `LOADER` (Worker Loader) bindings already in `wr
    HA_MCP_URL=https://<your-home-assistant>/api/mcp
    HA_TOKEN=<long-lived access token>
    ```
-</details>
+   </details>
 
 ## Run locally
 
@@ -85,6 +88,7 @@ npm run dev
 This starts the Worker and a Cloudflare Quick Tunnel, printing a public `https://<name>.trycloudflare.com` URL. Open `https://<name>.trycloudflare.com/setup` once to point Telegram at it, then DM your bot.
 
 Quick Tunnel URLs are ephemeral — if it changes, just open `/setup` again.
+
 </details>
 
 ## Deploy
@@ -111,14 +115,15 @@ Then open `https://personal-agent.<your-subdomain>.workers.dev/setup`.
 > All six are listed in `secrets.required` (`wrangler.jsonc`), so deploy fails if any is missing — drop the ones for capabilities you removed.
 >
 > `/setup` and `/reset` are unauthenticated — add a guard (e.g. a secret query param) before exposing them publicly.
+
 </details>
 
 ## Routes
 
-| Route | Purpose |
-| --- | --- |
-| `GET /setup` | Register the Telegram webhook at the current host. |
-| `GET /reset` | Wipe the conversation and Chat SDK state. |
+| Route                          | Purpose                                            |
+| ------------------------------ | -------------------------------------------------- |
+| `GET /setup`                   | Register the Telegram webhook at the current host. |
+| `GET /reset`                   | Wipe the conversation and Chat SDK state.          |
 | `/messengers/telegram/webhook` | Telegram delivery (set automatically by `/setup`). |
 
 ## Project structure
