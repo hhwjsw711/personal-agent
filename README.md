@@ -1,10 +1,14 @@
+<p align="center">
+  <img src="logo.webp" alt="personal-agent logo" width="160" height="160" />
+</p>
+
 # personal-agent
 
 A deliberately minimal AI agent on Cloudflare Workers, built on [Think](https://developers.cloudflare.com/agents/harnesses/think/) (Agents SDK) and reachable from Telegram.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/megaconfidence/personal-agent)
 
-It's a thin skeleton — one `PersonalAgent` class plus a small Worker entry in `src/index.ts` (~250 lines). It's meant to be read, trimmed, and extended: tools are a few lines each and the model discovers them from their descriptions. Keep what you need, delete what you don't, add your own.
+It's a thin skeleton — a `PersonalAgent` class (`src/agent.ts`) wired up by a small Worker entry (`src/index.ts`), with tools, MCP servers, Telegram helpers, and the skill catalog split into their own small modules. It's meant to be read, trimmed, and extended: tools are a few lines each and the model discovers them from their descriptions. Keep what you need, delete what you don't, add your own.
 
 ## Capabilities
 
@@ -117,11 +121,23 @@ Then open `https://personal-agent.<your-subdomain>.workers.dev/setup`.
 | `GET /reset` | Wipe the conversation and Chat SDK state. |
 | `/messengers/telegram/webhook` | Telegram delivery (set automatically by `/setup`). |
 
+## Project structure
+
+```
+src/
+  index.ts     — Worker entry: routes (/setup, /reset, webhook) and Durable Object exports
+  agent.ts     — the PersonalAgent class: model, prompt, MCP session, progress hooks, tool/skill wiring
+  tools.ts     — custom tools (web_search, send_file) plus the browser tools
+  mcps.ts      — MCP servers connected each turn (Home Assistant)
+  telegram.ts  — Telegram Bot API helpers: chat-id decode, file upload, progress messages
+  skills.ts    — skill catalog (the bookmark skill)
+```
+
 ## Extend it
 
-- **Add a tool** → a `tool({ description, inputSchema, execute })` entry in `getTools()`.
-- **Add a service** → another `addMcpServer(...)` in `configureSession()`.
-- **Per-chat memory** → remove `conversation: "self"` in `getMessengers()`.
-- **Another channel** → add an adapter (Slack, Discord, …) beside `telegram`.
+- **Add a tool** → a `tool({ description, inputSchema, execute })` entry in `getTools()` (`tools.ts`).
+- **Add a service** → an entry in `mcpServers()` (`mcps.ts`).
+- **Per-chat memory** → remove `conversation: "self"` in `getMessengers()` (`agent.ts`).
+- **Another channel** → add an adapter (Slack, Discord, …) beside `telegram` in `getMessengers()`.
 
 After changing bindings in `wrangler.jsonc`, run `npm run cf-typegen`.
