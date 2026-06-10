@@ -11,6 +11,7 @@ import { createBrowserTools } from "@cloudflare/think/tools/browser";
 import puppeteer from "@cloudflare/puppeteer";
 import { tool } from "ai";
 import { z } from "zod";
+import { skillSources } from "./skills";
 
 // Backs Chat SDK state; the framework routes to it as a sub-agent.
 export { ThinkMessengerStateAgent };
@@ -167,6 +168,10 @@ export class PersonalAgent extends Think<Env> {
 				},
 			}),
 		};
+	}
+
+	override getSkills() {
+		return skillSources;
 	}
 
 	override getMessengers(): ThinkMessengers {

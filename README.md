@@ -14,6 +14,7 @@ It's a thin skeleton — one `PersonalAgent` class plus a small Worker entry in 
 - **Send files** — send any file from the workspace, a public URL, or a live page screenshot to the chat (`send_file`).
 - **Smart home** — control Home Assistant devices over MCP.
 - **Workspace tools** — files + sandboxed bash, built into Think.
+- **Skills** — on-demand playbooks the model activates per task; ships with `bookmark` (`getSkills()`).
 
 > Want another capability? Add a `tool()` in `getTools()`, or another MCP server in `configureSession()`. Don't need one? Delete its few lines.
 
