@@ -35,7 +35,10 @@ export class PersonalAgent extends Think<Env> {
 	}
 
 	// Connect each configured MCP server; their tools merge into every turn.
+	// If a server requires OAuth, send the auth URL to the user via Telegram
+	// so they can authorize without leaving the chat.
 	override async configureSession(session: Session): Promise<Session> {
+		const chatId = this.telegramChatId();
 		for (const server of mcpServers(this.env)) {
 			try {
 				const result = await this.addMcpServer(
@@ -43,7 +46,15 @@ export class PersonalAgent extends Think<Env> {
 					server.url,
 					server.options,
 				);
-				if (result.state !== "ready") {
+				if (result.state === "authenticating") {
+					if (chatId) {
+						await callTelegram(this.env.TELEGRAM_BOT_TOKEN, "sendMessage", {
+							chat_id: chatId,
+							text: `To connect ${server.name}, authorize here:\n${result.authUrl}`,
+							disable_web_page_preview: true,
+						});
+					}
+				} else if (result.state !== "ready") {
 					console.error(`MCP server "${server.name}" not ready:`, result);
 				}
 			} catch (err) {
