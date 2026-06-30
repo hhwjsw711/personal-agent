@@ -5,7 +5,7 @@
 	"compatibility_date": "2026-06-08",
 	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
-		"enabled": true
+		"enabled": true,
 	},
 	"upload_source_maps": true,
 
@@ -13,21 +13,13 @@
 	// local AI emulator: even `wrangler dev` runs inference on your real account.
 	"ai": {
 		"binding": "AI",
-		"remote": true
+		"remote": true,
 	},
-
-	// Browser Run (headless Chrome over CDP) + Worker Loader (sandbox that runs
-	// the model's generated CDP code). These power browser_search / browser_execute;
-	// the BROWSER binding is also used by the screenshot tool via puppeteer.
-	"browser": {
-		"binding": "BROWSER"
-	},
-	"worker_loaders": [{ "binding": "LOADER" }],
 
 	// Register PersonalAgent as a Durable Object. Each conversation instance is one
 	// DO with its own SQLite storage. `getAgentByName(env.PersonalAgent, ...)` uses this.
 	"durable_objects": {
-		"bindings": [{ "name": "PersonalAgent", "class_name": "PersonalAgent" }]
+		"bindings": [{ "name": "PersonalAgent", "class_name": "PersonalAgent" }],
 	},
 
 	// Agents/Think store state in SQLite, so the class must be a SQLite-backed DO.
@@ -38,13 +30,6 @@
 	// without sniffing .env, and `wrangler dev` warns if any are missing. Set the
 	// values via .env locally and `wrangler secret put` in production.
 	"secrets": {
-		"required": [
-			"TELEGRAM_BOT_TOKEN",
-			"TELEGRAM_BOT_USERNAME",
-			"TELEGRAM_WEBHOOK_SECRET_TOKEN",
-			"TAVILY_API_KEY",
-			"HA_MCP_URL",
-			"HA_TOKEN"
-		]
-	}
+		"required": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_BOT_USERNAME", "TELEGRAM_WEBHOOK_SECRET_TOKEN", "TAVILY_API_KEY"],
+	},
 }

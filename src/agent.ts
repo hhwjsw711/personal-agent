@@ -1,20 +1,11 @@
-import { createWorkersAI } from "workers-ai-provider";
-import {
-	Think,
-	type Session,
-	type TurnContext,
-	type ToolCallContext,
-} from "@cloudflare/think";
-import {
-	defineMessengers,
-	ThinkMessengerStateAgent,
-	type ThinkMessengers,
-} from "@cloudflare/think/messengers";
-import telegramMessenger from "@cloudflare/think/messengers/telegram";
-import { getTools } from "./tools";
-import { skillSources } from "./skills";
-import { mcpServers } from "./mcps";
-import { callTelegram, decodeChatId } from "./telegram";
+import { createWorkersAI } from 'workers-ai-provider';
+import { Think, type Session, type TurnContext, type ToolCallContext } from '@cloudflare/think';
+import { defineMessengers, ThinkMessengerStateAgent, type ThinkMessengers } from '@cloudflare/think/messengers';
+import telegramMessenger from '@cloudflare/think/messengers/telegram';
+import { getTools } from './tools';
+import { skillSources } from './skills';
+import { mcpServers } from './mcps';
+import { callTelegram, decodeChatId } from './telegram';
 
 export class PersonalAgent extends Think<Env> {
 	// Connect Home Assistant's MCP tools before the first turn runs.
@@ -24,14 +15,14 @@ export class PersonalAgent extends Think<Env> {
 	private status?: { chatId: string; messageId: number; text: string };
 
 	override getModel() {
-		return createWorkersAI({ binding: this.env.AI })("@cf/moonshotai/kimi-k2.6");
+		return createWorkersAI({ binding: this.env.AI })('@cf/moonshotai/kimi-k2.6');
 	}
 
 	override getSystemPrompt() {
 		return [
-			"You are a friendly, concise assistant replying inside a Telegram chat.",
-			"Keep answers short and easy to read on a phone.",
-		].join("\n");
+			'You are a friendly, concise assistant replying inside a Telegram chat.',
+			'Keep answers short and easy to read on a phone.',
+		].join('\n');
 	}
 
 	// Connect each configured MCP server; their tools merge into every turn.
@@ -41,20 +32,16 @@ export class PersonalAgent extends Think<Env> {
 		const chatId = this.telegramChatId();
 		for (const server of mcpServers(this.env)) {
 			try {
-				const result = await this.addMcpServer(
-					server.name,
-					server.url,
-					server.options,
-				);
-				if (result.state === "authenticating") {
+				const result = await this.addMcpServer(server.name, server.url, server.options);
+				if (result.state === 'authenticating') {
 					if (chatId) {
-						await callTelegram(this.env.TELEGRAM_BOT_TOKEN, "sendMessage", {
+						await callTelegram(this.env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
 							chat_id: chatId,
 							text: `To connect ${server.name}, authorize here:\n${result.authUrl}`,
 							disable_web_page_preview: true,
 						});
 					}
-				} else if (result.state !== "ready") {
+				} else if (result.state !== 'ready') {
 					console.error(`MCP server "${server.name}" not ready:`, result);
 				}
 			} catch (err) {
@@ -67,7 +54,6 @@ export class PersonalAgent extends Think<Env> {
 	override getTools() {
 		return getTools({
 			env: this.env,
-			browser: this.browserBinding,
 			workspace: this.workspace,
 			getChatId: () => this.telegramChatId(),
 		});
@@ -91,26 +77,25 @@ export class PersonalAgent extends Think<Env> {
 		const text = `⏳ Running ${ctx.toolName}…`;
 		if (this.status) {
 			if (this.status.text === text) return;
-			await callTelegram(this.env.TELEGRAM_BOT_TOKEN, "editMessageText", {
+			await callTelegram(this.env.TELEGRAM_BOT_TOKEN, 'editMessageText', {
 				chat_id: chatId,
 				message_id: this.status.messageId,
 				text,
 			});
 			this.status.text = text;
 		} else {
-			const res = await callTelegram(this.env.TELEGRAM_BOT_TOKEN, "sendMessage", {
+			const res = await callTelegram(this.env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
 				chat_id: chatId,
 				text,
 			});
 			const data = (await res.json()) as { result?: { message_id: number } };
-			if (data.result)
-				this.status = { chatId, messageId: data.result.message_id, text };
+			if (data.result) this.status = { chatId, messageId: data.result.message_id, text };
 		}
 	}
 
 	override async onChatResponse() {
 		if (!this.status) return;
-		await callTelegram(this.env.TELEGRAM_BOT_TOKEN, "deleteMessage", {
+		await callTelegram(this.env.TELEGRAM_BOT_TOKEN, 'deleteMessage', {
 			chat_id: this.status.chatId,
 			message_id: this.status.messageId,
 		});
@@ -123,8 +108,8 @@ export class PersonalAgent extends Think<Env> {
 				token: this.env.TELEGRAM_BOT_TOKEN,
 				userName: this.env.TELEGRAM_BOT_USERNAME,
 				secretToken: this.env.TELEGRAM_WEBHOOK_SECRET_TOKEN,
-				conversation: "self", // all chats share one memory; drop for per-thread
-				respondTo: ["direct-message", "mention"],
+				conversation: 'self', // all chats share one memory; drop for per-thread
+				respondTo: ['direct-message', 'mention'],
 			}),
 		});
 	}
@@ -136,16 +121,10 @@ export class PersonalAgent extends Think<Env> {
 		for (const sub of this.listSubAgents(ThinkMessengerStateAgent)) {
 			await this.deleteSubAgent(ThinkMessengerStateAgent, sub.name);
 		}
-		for (const entry of await this.workspace.readDir("/")) {
+		for (const entry of await this.workspace.readDir('/')) {
 			await this.workspace.rm(entry.path, { recursive: true, force: true });
 		}
 		await this.clearMessages();
-	}
-
-	// BROWSER is typed as `BrowserRun`, but the browser tools and puppeteer
-	// expect a `Fetcher` — same object at runtime.
-	private get browserBinding(): Fetcher {
-		return this.env.BROWSER as unknown as Fetcher;
 	}
 
 	private telegramChatId(): string | undefined {
