@@ -30,6 +30,6 @@
 	// without sniffing .env, and `wrangler dev` warns if any are missing. Set the
 	// values via .env locally and `wrangler secret put` in production.
 	"secrets": {
-		"required": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_BOT_USERNAME", "TELEGRAM_WEBHOOK_SECRET_TOKEN", "TAVILY_API_KEY"],
+		"required": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_BOT_USERNAME", "TELEGRAM_WEBHOOK_SECRET_TOKEN", "TAVILY_API_KEY", "GITHUB_TOKEN"],
 	},
 }

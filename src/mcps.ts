@@ -7,5 +7,17 @@ export function mcpServers(env: Env): {
 	url: string;
 	options: AddMcpServerOptions;
 }[] {
-	return [];
+	return [
+		{
+			name: 'github',
+			url: 'https://api.githubcopilot.com/mcp/',
+			options: {
+				id: 'github',
+				transport: {
+					type: 'streamable-http',
+					headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}` },
+				},
+			},
+		},
+	];
 }
